@@ -1,20 +1,70 @@
-# @summary A short summary of the purpose of this class
+<% app_name = name.gsub('psick::', '') -%>
+# <%= name %>
 #
-# A description of what this class does
+# @summary This psick profile manages <%= app_name %>
 #
-# @example
+# @example Include it to install <%= app_name %>
 #   include <%= name %>
-<%- if params -%>
 #
+# @example Include in PSICK via hiera (yaml)
+#   psick::profiles::linux_classes:
+#     <%= app_name %>: <%= name %>
+#
+# @param manage If to actually manage any resource in this profile or not
+# @param auto_prereq If to automatically install eventual dependencies.
+#   Set to false if you have problems with duplicated resources, being sure that you
+#   provide the needed prerequistes.
+# @param options_hash An custom hash of keypair which may be used in templates to
+#   manage any <%= app_name %> setting.
+# @param module What module to use to manage <%= app_name %>.
+#   The specified module name, if different, must be added to Puppetfile. Set to undef
+#   or an empty string to not include any class.
+# @param noop_manage If to use the noop() function for all the resources provided
+#   by this class. If this is true the noop function is called with $noop_value argument.
+#   This overrides any other noop setting (either set on client's puppet.conf or by noop()
+#   function in main psick class).
+# @param noop_value The value to pass to noop() function if noop_manage is true.
+#   It applies to all the resources (and classes) declared in this class.
+#   If true: noop metaparamenter is set to true, resources are not applied
+#   If false: noop metaparameter is set to false, any eventual noop setting is overridden
+#   and resources are always applied.
+#
+<%- if params -%>
 <%-   params.each do |param| -%>
-# @param <%= param[:name] %> A description of this parameter.
+# @param <%= param[:name] %> <%= param[:description] %>.
 <%-   end -%>
+<%- end -%>
 class <%= name %> (
+  Psick::Ensure   $ensure                   = 'present',
+  Boolean         $manage                   = $::psick::manage,
+  Boolean         $auto_prereq              = $::psick::auto_prereq,
+  Hash            $options_hash             = {},
+  Optional[String] $module                  = 'tp_profile',
+  Boolean         $noop_manage              = $::psick::noop_manage,
+  Boolean         $noop_value               = $::psick::noop_value,
+
+  <%- if params -%>
 <%-   params.each do |param| -%>
   <%= param[:type].ljust(max_type_length) %> $<%= param[:name] %>,
 <%-   end -%>
-) {
-<%- else -%>
-class <%= name %> {
 <%- end -%>
+) {
+
+  if $manage {
+    
+    if $noop_manage {
+      noop($noop_value)
+    }
+
+    # Managed resources according to $module selected
+    case $module {
+      'tp_profile': {
+        contain tp_profile::<%= appname %>
+      }
+      Variant[Undef,String[0:0]]: {}
+      default: {
+        contain $module
+      }
+    }
+  }
 }
